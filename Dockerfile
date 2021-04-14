@@ -1,3 +1,3 @@
 FROM python:3.8
-WORKDIR ./
+COPY ./*.py ./
 CMD ["python", "main.py"]

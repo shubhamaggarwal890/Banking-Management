@@ -1,5 +1,6 @@
 from account_information import AccountInformation
 from customer_information import CustomerInformation
+from transaction_information import TransactionInformation
 import os
 import pickle
 
@@ -7,6 +8,7 @@ import pickle
 def credential_check(username, password):
     customer = open('customer_db', 'rb')
     all_customers = pickle.load(customer)
+    customer.close()
     for i in all_customers:
         if i.username == username and i.password == password:
             return i
@@ -84,7 +86,7 @@ def add_customer_menu():
     while True:
         if i > 2:
             print("Too many invalid inputs. Logging out, GoodBye!!!")
-            exit()
+            return
         username = input("Username: ")
         if unique_username(username):
             break
@@ -96,7 +98,7 @@ def add_customer_menu():
     while True:
         if i > 2:
             print("Too many invalid inputs. Logging out, GoodBye!!!")
-            exit()
+            return
         account_type = input("Press 1 for admin or 2 for user account type: ")
         if account_type == '1':
             account_type = True
@@ -153,7 +155,7 @@ def search_account(username):
     customers = get_customer_db()
     for i in customers:
         if i.username == username:
-            print(i.display())
+            i.display()
             return
     print("\n" + str(username) + " was not found. Nothing to search!!!\n")
 
@@ -176,6 +178,7 @@ def admin_operations(user):
             elif choice == '4':
                 username = input("\nTo display account details, enter the username of the user: ")
                 search_account(username)
+                print("\n")
             else:
                 goodbye_msg()
                 break
@@ -184,17 +187,43 @@ def admin_operations(user):
 
 
 def account_balance(username, amount):
-    customer_db = open('customer_db', 'rb')
-    customers = pickle.load(customer_db)
-    customer_db.close()
+    customers = get_customer_db()
     index = 0
     for i in customers:
         if i.username == username:
             customers[index].account.balance = i.account.balance + amount
-            customer_db = open('customer_db', 'wb')
-            pickle.dump(customers, customer_db)
-            return customers[index].account.balance
+            write_customer_db(customers)
+            return customers[index].account
         index = index + 1
+
+
+def make_transaction(account, credit_type, amount):
+    if not os.path.isfile('transaction_db'):
+        transaction = TransactionInformation(account, credit_type, amount)
+        transaction_db = open('transaction_db', 'wb')
+        pickle.dump([transaction], transaction_db)
+    else:
+        transaction_db = open('transaction_db', 'rb')
+        transactions = pickle.load(transaction_db)
+        transaction = TransactionInformation(account, credit_type, amount)
+        transactions.append(transaction)
+        transaction_db.close()
+        transaction_db = open('transaction_db', 'wb')
+        pickle.dump(transactions, transaction_db)
+        transaction_db.close()
+
+
+def get_account_transaction(account):
+    transaction_db = open('transaction_db', 'rb')
+    transactions = pickle.load(transaction_db)
+    transaction_db.close()
+    flag = False
+    for t in transactions:
+        if t.account.account_number == account.account_number:
+            flag = True
+            t.display()
+    if not flag:
+        print("\n-------------------No Transactions found-------------------")
 
 
 def user_operations(user):
@@ -212,8 +241,9 @@ def user_operations(user):
                     amount = float(input("Enter the amount to be deposited: "))
                     if amount < 0:
                         raise ValueError
-                    balance = account_balance(user.username, amount)
-                    print("\nAmount successfully deposited. Current Balance is "+str(balance)+"\n")
+                    account = account_balance(user.username, amount)
+                    make_transaction(account, True, amount)
+                    print("\nAmount successfully deposited. Current Balance is "+str(account.balance)+"\n")
                 except ValueError or Exception as e:
                     print("\nInvalid input!!!\n")
 
@@ -222,22 +252,25 @@ def user_operations(user):
                     amount = float(input("Enter the amount to be withdrawn: "))
                     if amount < 0:
                         raise ValueError
-                    balance = account_balance(user.username, -amount)
-                    print("\nAmount successfully withdrawn. Current Balance is "+str(balance)+"\n")
+                    account = account_balance(user.username, -amount)
+                    make_transaction(account, False, amount)
+                    print("\nAmount successfully withdrawn. Current Balance is "+str(account.balance)+"\n")
                 except ValueError or Exception as e:
                     print("\nInvalid input!!!\n")
 
             elif choice == '3':
-                customer_db = open('customer_db', 'rb')
-                customers = pickle.load(customer_db)
-                customer_db.close()
+                customers = get_customer_db()
                 for i in customers:
                     if i.username == user.username:
                         print("\nAccount Number: " + str(i.account.account_number))
-                        print("Balance: Rs " + str(i.account.balance) + "\n")
+                        print("Balance: Rs " + str(i.account.balance))
+                        print("\n-------------------Transactions-------------------\n")
+                        get_account_transaction(i.account)
+                        print("\n")
                         break
             elif choice == '4':
                 search_account(user.username)
+                print("\n")
             else:
                 goodbye_msg()
                 break
@@ -261,7 +294,7 @@ def welcome_msg():
         else:
             user_operations(logged_user)
     else:
-        print("\nSorry invalid credentials. Goodbye!")
+        print("\nSorry invalid credentials. Goodbye!\n")
 
 
 def initial_setup():
@@ -277,4 +310,9 @@ def initial_setup():
 
 if __name__ == '__main__':
     initial_setup()
-    welcome_msg()
+    while True:
+        try:
+            welcome_msg()
+        except KeyboardInterrupt or Exception as e:
+            print()
+            exit()
