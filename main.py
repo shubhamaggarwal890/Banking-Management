@@ -32,7 +32,53 @@ def get_account_number():
     return account_number
 
 
-def add_account():
+def get_customer_db():
+    try:
+        read_customer = open('customer_db', 'rb')
+        all_customers = pickle.load(read_customer)
+        read_customer.close()
+        return all_customers
+    except pickle.PickleError or Exception as e:
+        return None
+
+
+def write_customer_db(modified_customers):
+    try:
+        write_customer = open('customer_db', 'wb')
+        pickle.dump(modified_customers, write_customer)
+        write_customer.close()
+        return True
+    except pickle.PickleError or Exception as e:
+        return False
+
+
+def add_customer_info(username, password, name, account_type):
+    try:
+        account = AccountInformation(get_account_number())
+        customer = CustomerInformation(username, password, account, name, account_type)
+        all_customers = get_customer_db()
+        all_customers.append(customer)
+        if write_customer_db(all_customers):
+            return account
+    except AttributeError or Exception as e:
+        return None
+
+
+def delete_customer_info(username):
+    try:
+        customers = get_customer_db()
+        index = 0
+        for i in customers:
+            if i.username == username:
+                del customers[index]
+                return write_customer_db(customers)
+            index = index + 1
+    except TypeError or Exception:
+        return False
+    return False
+
+
+def add_customer_menu():
     print("\nTo add the account, fill the following details of the user,")
     i = 0
     while True:
@@ -61,38 +107,25 @@ def add_account():
         else:
             print("Invalid input!!!")
         i = i+1
-    account = AccountInformation(get_account_number())
-    customer = CustomerInformation(username, password, account, name, account_type)
-    read_customer = open('customer_db', 'rb')
-    all_customers = pickle.load(read_customer)
-    all_customers.append(customer)
-    write_customer = open('customer_db', 'wb')
-    pickle.dump(all_customers, write_customer)
-    print("\nAccount details saved successfully!!! "+name+" account number is "+str(account.account_number)+"\n")
+    account = add_customer_info(username, password, name, account_type)
+    if account:
+        print("\nAccount details saved successfully!!! " + name + " account number is " + str(
+            account.account_number) + "\n")
+    else:
+        print("\nSome error occurred!!! Please try again\n")
 
 
-def delete_account():
+def delete_customer_menu():
     username = input("\nTo delete the account, enter the username of the user: ")
-    customer_db = open('customer_db', 'rb')
-    customers = pickle.load(customer_db)
-    customer_db.close()
-    index = 0
-    for i in customers:
-        if i.username == username:
-            del customers[index]
-            customer_db = open('customer_db', 'wb')
-            pickle.dump(customers, customer_db)
-            print("\n"+username+" successfully deleted!!!\n")
-            return
-        index = index+1
-    print("\n"+username+" was not found. Nothing was deleted!!!\n")
+    if delete_customer_info(username):
+        print("\n" + username + " successfully deleted!!!\n")
+    else:
+        print("\n" + username + " was not found. Nothing was deleted!!!\n")
 
 
 def modify_account():
     username = input("\nTo modify the account, enter the username of the user: ")
-    customer_db = open('customer_db', 'rb')
-    customers = pickle.load(customer_db)
-    customer_db.close()
+    customers = get_customer_db()
     index = 0
     for i in customers:
         if i.username == username:
@@ -106,30 +139,21 @@ def modify_account():
                 print("\nNothing was modified!!!\n")
                 return
             customers[index] = i
-            customer_db = open('customer_db', 'wb')
-            pickle.dump(customers, customer_db)
-            print("\nDetails of " + username + " successfully modified!!!\n")
+            if write_customer_db(customers):
+                print("\nDetails of " + username + " successfully modified!!!\n")
+                return
+            else:
+                print("\nDetails couldn't be modified, some error occurred!!Please try again!!!\n")
             return
         index = index + 1
     print("\n" + username + " was not found. Nothing was modified!!!\n")
 
 
 def search_account(username):
-    customer_db = open('customer_db', 'rb')
-    customers = pickle.load(customer_db)
-    customer_db.close()
+    customers = get_customer_db()
     for i in customers:
         if i.username == username:
-            if i.account:
-                print("\nUser & Account details are")
-                print("Username: "+i.username)
-                print("Name: "+i.name)
-                print("Account Number: "+str(i.account.account_number))
-                print("Balance: Rs "+str(i.account.balance)+"\n")
-            else:
-                print("\nUser details are")
-                print("Username: " + i.username)
-                print("Name: " + i.name+"\n")
+            print(i.display())
             return
     print("\n" + str(username) + " was not found. Nothing to search!!!\n")
 
@@ -144,9 +168,9 @@ def admin_operations(user):
                 "Press any other key to exit\nEnter your choice: "
             )
             if choice == '1':
-                add_account()
+                add_customer_menu()
             elif choice == '2':
-                delete_account()
+                delete_customer_menu()
             elif choice == '3':
                 modify_account()
             elif choice == '4':
